@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900" role="img" aria-labelledby="title desc">
+<title id="title">MacBook에서 iPhone 사진을 정리하는 과정</title>
+<desc id="desc">사진 정리 도우미로 후보를 찾아 앨범에 모으고, 사진 앱에서 직접 지운 뒤 iPhone에 반영되는 7단계</desc>
+<style>
+  text{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Apple SD Gothic Neo","Noto Sans KR","Noto Sans CJK KR","Malgun Gothic",sans-serif;fill:#000}
+  .s{stroke:#000;fill:none} .a{fill:#000} .r{fill:#d9480f} .rs{stroke:#d9480f;fill:none} .rf{fill:#d9480f} .w{fill:#fff}
+  @media (prefers-color-scheme: dark){ text{fill:#fff} .s{stroke:#fff} .a{fill:#fff} .r{fill:#ff8a50} .rs{stroke:#ff8a50} .rf{fill:#ff8a50} .w{fill:#000} }
+</style>
+<defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" class="a"/></marker></defs>
+<text x="40" y="60" font-size="24" font-weight="700">MacBook에서 iPhone 사진 정리하기</text>
+<text x="40" y="92" font-size="16">iPhone 사진은 iCloud로 MacBook 사진 앱과 같은 보관함을 씀</text>
+<rect x="300" y="136" width="560" height="74" rx="8" class="s" stroke-width="1.2"/>
+<circle cx="334" cy="173.0" r="15" class="a"/>
+<text x="334" y="178.5" text-anchor="middle" font-size="15" font-weight="700" class="w">1</text>
+<text x="364" y="167" font-size="18" font-weight="700" class="">후보 찾기</text>
+<text x="364" y="194" font-size="14.5">큰 동영상, 연속촬영, 스크린샷</text>
+<path d="M580.0 213V232" class="s" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="300" y="236" width="560" height="74" rx="8" class="s" stroke-width="1.2"/>
+<circle cx="334" cy="273.0" r="15" class="a"/>
+<text x="334" y="278.5" text-anchor="middle" font-size="15" font-weight="700" class="w">2</text>
+<text x="364" y="267" font-size="18" font-weight="700" class="">사진 고르기</text>
+<text x="364" y="294" font-size="14.5">클릭, Shift + 클릭으로 여러 장</text>
+<path d="M580.0 313V332" class="s" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="300" y="336" width="560" height="74" rx="8" class="s" stroke-width="1.2"/>
+<circle cx="334" cy="373.0" r="15" class="a"/>
+<text x="334" y="378.5" text-anchor="middle" font-size="15" font-weight="700" class="w">3</text>
+<text x="364" y="367" font-size="18" font-weight="700" class="">앨범 만들기</text>
+<text x="364" y="394" font-size="14.5">고른 사진을 ‘정리후보’ 앨범에 모음</text>
+<path d="M580.0 413V452" class="s" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="300" y="456" width="560" height="74" rx="8" class="rs" stroke-width="2.6"/>
+<circle cx="334" cy="493.0" r="15" class="rf"/>
+<text x="334" y="498.5" text-anchor="middle" font-size="15" font-weight="700" class="w">4</text>
+<text x="364" y="487" font-size="18" font-weight="700" class="r">남길 사진 빼기</text>
+<rect x="364" y="498" width="60" height="23" rx="4" class="rs" stroke-width="1.3"/>
+<text x="394.0" y="514" text-anchor="middle" font-size="12.5" font-weight="700" class="r">Delete</text>
+<text x="436" y="515" font-size="14.5">앨범에서만 빠지고 사진은 남음</text>
+<path d="M580.0 533V552" class="s" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="300" y="556" width="560" height="74" rx="8" class="rs" stroke-width="2.6"/>
+<circle cx="334" cy="593.0" r="15" class="rf"/>
+<text x="334" y="598.5" text-anchor="middle" font-size="15" font-weight="700" class="w">5</text>
+<text x="364" y="587" font-size="18" font-weight="700" class="r">모두 지우기</text>
+<rect x="364" y="598" width="25" height="23" rx="4" class="rs" stroke-width="1.3"/>
+<text x="376.5" y="614" text-anchor="middle" font-size="12.5" font-weight="700" class="r">⌘</text>
+<text x="395" y="614" font-size="13">+</text>
+<rect x="407" y="598" width="20" height="23" rx="4" class="rs" stroke-width="1.3"/>
+<text x="417.0" y="614" text-anchor="middle" font-size="12.5" font-weight="700" class="r">A</text>
+<text x="435" y="614" font-size="14">→</text>
+<rect x="455" y="598" width="25" height="23" rx="4" class="rs" stroke-width="1.3"/>
+<text x="467.5" y="614" text-anchor="middle" font-size="12.5" font-weight="700" class="r">⌘</text>
+<text x="486" y="614" font-size="13">+</text>
+<rect x="498" y="598" width="60" height="23" rx="4" class="rs" stroke-width="1.3"/>
+<text x="528.0" y="614" text-anchor="middle" font-size="12.5" font-weight="700" class="r">Delete</text>
+<text x="570" y="615" font-size="14.5">보관함에서 삭제</text>
+<path d="M580.0 633V652" class="s" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="300" y="656" width="560" height="74" rx="8" class="s" stroke-width="1.2"/>
+<circle cx="334" cy="693.0" r="15" class="a"/>
+<text x="334" y="698.5" text-anchor="middle" font-size="15" font-weight="700" class="w">6</text>
+<text x="364" y="687" font-size="18" font-weight="700" class="">최근 삭제 비우기</text>
+<text x="364" y="714" font-size="14.5">30일 안에는 복구 가능</text>
+<path d="M580.0 733V772" class="s" stroke-width="1.4" marker-end="url(#arr)"/>
+<rect x="300" y="776" width="560" height="74" rx="8" class="s" stroke-width="1.2"/>
+<circle cx="334" cy="813.0" r="15" class="a"/>
+<text x="334" y="818.5" text-anchor="middle" font-size="15" font-weight="700" class="w">7</text>
+<text x="364" y="807" font-size="18" font-weight="700" class="">iPhone에 반영</text>
+<text x="364" y="834" font-size="14.5">iCloud 동기화 후 용량 감소(반영은 몇 시간 걸릴 수 있음)</text>
+<path d="M280 136H272V410H280" class="s" stroke-width="1.2"/>
+<text x="256" y="255.0" text-anchor="end" font-size="18" font-weight="700" class="">MacBook</text>
+<text x="256" y="279.0" text-anchor="end" font-size="16" font-weight="700" class="">사진 정리 도우미</text>
+<text x="256" y="303.0" text-anchor="end" font-size="14.5" class="">보관함은 읽기만</text>
+<path d="M280 456H272V730H280" class="rs" stroke-width="2"/>
+<text x="256" y="575.0" text-anchor="end" font-size="18" font-weight="700" class="r">MacBook</text>
+<text x="256" y="599.0" text-anchor="end" font-size="16" font-weight="700" class="r">사진 앱</text>
+<text x="256" y="623.0" text-anchor="end" font-size="14.5" class="r">삭제는 여기서만</text>
+<path d="M280 776H272V850H280" class="s" stroke-width="1.2"/>
+<text x="256" y="807.0" text-anchor="end" font-size="18" font-weight="700" class="">iPhone</text>
+<text x="256" y="831.0" text-anchor="end" font-size="14.5" class="">자동 반영</text>
+</svg>

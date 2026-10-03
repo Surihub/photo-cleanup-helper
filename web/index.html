@@ -1,0 +1,707 @@
+<!doctype html>
+<!--
+  사진 정리 도우미 검토 화면
+  photo_review.py가 http://127.0.0.1:<포트>/ 로 제공한다. 외부 라이브러리 없이 HTML, CSS, JavaScript 한 파일로 되어 있다.
+  서버와 주고받는 API는 photo_review.py의 make_handler 설명을 참고한다.
+-->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>사진 정리 도우미</title>
+<style>
+/* 색과 간격 토큰. 다크 모드는 아래 media 블록에서 같은 이름을 다시 정의한다. */
+:root{
+  --bg:#f7f7f5; --surface:#ffffff; --sunken:#f0efec; --line:#e6e4df; --line-strong:#d6d3cc;
+  --text:#1c1b19; --muted:#6e6b65; --faint:#8a867e;
+  --accent:#2f6fde; --accent-soft:#e8effc; --accent-ink:#ffffff;
+  --keep:#1f9d63; --danger:#c8432b;
+  --bar:#1c1b19; --bar-ink:#f5f4f1;
+  --r:10px; --shadow-lg:0 12px 40px rgba(20,20,18,.18);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#121212; --surface:#1b1b1b; --sunken:#242424; --line:#2c2c2c; --line-strong:#3a3a3a;
+    --text:#eceae6; --muted:#a19d95; --faint:#8a867e;
+    --accent:#6b9cf0; --accent-soft:#1e2a3d; --accent-ink:#0c1422;
+    --keep:#4cc488; --danger:#ff7a5c; --bar:#f1efea; --bar-ink:#161616; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard",sans-serif;
+  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+button,select,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* 상단 바: 프로그램 이름, 보관함 요약, 새로고침, 사용설명서 */
+header{height:56px;flex:none;display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;letter-spacing:-.01em;white-space:nowrap}
+.brand .mark{width:26px;height:26px;border-radius:7px;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center}
+.brand .mark svg{width:15px;height:15px;stroke-width:2}
+.stats{display:flex;gap:18px;flex:1;min-width:0;overflow:hidden;white-space:nowrap}
+.stat{font-size:13px;color:var(--muted)} .stat b{color:var(--text);font-weight:600;margin-left:5px}
+.ghost{display:inline-flex;align-items:center;gap:6px;border:0;background:transparent;padding:6px 10px;border-radius:8px;color:var(--muted);text-decoration:none;font-size:13px;white-space:nowrap}
+.ghost:hover{background:var(--sunken);color:var(--text)}
+
+.layout{flex:1;display:flex;min-height:0}
+
+/* 왼쪽 사이드바: 찾을 기준, 기준별 옵션, 공통 조건 */
+aside{width:264px;flex:none;background:var(--surface);border-right:1px solid var(--line);overflow:auto;padding:18px 14px 28px}
+.label{font-size:11.5px;font-weight:600;color:var(--faint);letter-spacing:.02em;margin:24px 8px 8px}
+.label:first-child{margin-top:2px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;width:100%;border:0;background:transparent;padding:8px 10px;border-radius:8px;text-align:left;color:var(--text)}
+.nav button:hover{background:var(--sunken)}
+.nav button.on{background:var(--accent-soft);color:var(--accent)}
+.nav .t{flex:1;font-weight:500}
+.nav .c{font-size:11.5px;color:var(--faint);text-align:right;line-height:1.3}
+.nav button.on .c{color:var(--accent)}
+.opts{padding:0 8px}
+.opts .label,.opts .label:first-child{margin:26px 0 8px}
+.field{display:block;margin:12px 0}
+.field > span{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+select,input[type=text]{width:100%;height:34px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);outline:none}
+select:focus,input[type=text]:focus{border-color:var(--accent)}
+.seg{display:flex;background:var(--sunken);border-radius:8px;padding:3px;gap:2px}
+.seg button{flex:1;border:0;background:transparent;height:28px;border-radius:6px;font-size:13px;color:var(--muted)}
+.seg button.on{background:var(--surface);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.hint{font-size:12px;color:var(--faint);line-height:1.6;margin-top:8px}
+.switch{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;padding:7px 0;cursor:pointer}
+.switch input{appearance:none;-webkit-appearance:none;width:32px;height:18px;border-radius:9px;background:var(--line-strong);position:relative;cursor:pointer;transition:background .15s;flex:none;margin:0}
+.switch input::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 2px rgba(0,0,0,.2)}
+.switch input:checked{background:var(--accent)} .switch input:checked::after{transform:translateX(14px)}
+
+/* 본문: 기준 제목, 정렬, 후보 목록 */
+main{flex:1;min-width:0;overflow:auto;position:relative}
+.head{position:sticky;top:0;z-index:3;background:var(--bg);display:flex;align-items:flex-end;gap:10px;padding:22px 28px 16px}
+.head .title{flex:1;min-width:0}
+.head h2{margin:0;font-size:21px;font-weight:700;letter-spacing:-.02em}
+.head .metric{margin-top:3px;color:var(--muted);font-size:13.5px}
+.head .metric b{color:var(--text);font-weight:600}
+.head select{width:auto;height:32px}
+.inline{display:inline-flex;align-items:flex-end} .inline[hidden]{display:none}
+.btn{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:1px solid var(--line);background:var(--surface);border-radius:8px;font-size:13px;white-space:nowrap}
+.btn:hover{border-color:var(--line-strong)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn:disabled{opacity:.45;cursor:default}
+#content{padding:2px 28px 120px}
+
+/* 미리보기 카드: 선택(파란 테두리), 남길 사진(초록 테두리), 확대 버튼, 재생 시간 */
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:18px 14px}
+.card{position:relative;cursor:pointer;user-select:none}
+.thumb{position:relative;aspect-ratio:1/1;border-radius:var(--r);overflow:hidden;background:var(--sunken);transition:transform .12s ease}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb::after{content:"";position:absolute;inset:0;border-radius:var(--r);box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);pointer-events:none}
+.card.sel .thumb{transform:scale(.93)}
+.card.sel .thumb::after{box-shadow:inset 0 0 0 3px var(--accent)}
+.check{position:absolute;top:8px;left:8px;width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,.95);background:rgba(0,0,0,.18);
+  display:grid;place-items:center;opacity:0;transition:opacity .12s}
+.check svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none;opacity:0}
+.card:hover .check,.card.sel .check,body.selecting .check{opacity:1}
+.card.sel .check{background:var(--accent);border-color:var(--accent)} .card.sel .check svg{opacity:1}
+.zoom{position:absolute;top:7px;right:7px;width:28px;height:28px;border-radius:7px;border:0;background:rgba(0,0,0,.45);color:#fff;display:grid;place-items:center;opacity:0;transition:opacity .12s}
+.zoom svg{width:15px;height:15px}
+.card:hover .zoom,.zoom:focus-visible{opacity:1}
+.pill{position:absolute;bottom:7px;right:7px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:600;padding:2px 7px;border-radius:999px}
+.flags{position:absolute;bottom:7px;left:7px;display:flex;gap:4px}
+.flags span{background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:2px 6px;border-radius:999px}
+.meta{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:7px 2px 0;font-size:12.5px}
+.meta .s{font-weight:600}
+.meta .d{color:var(--faint);font-size:12px;white-space:nowrap}
+.meta .cloud{color:var(--faint);margin-left:5px;font-weight:400}
+
+.card.keep .thumb::after{box-shadow:inset 0 0 0 3px var(--keep)}
+.keeptag{position:absolute;top:8px;left:8px;background:var(--keep);color:#fff;font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px}
+.mkkeep{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);border:0;background:rgba(255,255,255,.95);color:#1c1b19;font-size:11.5px;font-weight:600;padding:4px 10px;border-radius:999px;opacity:0;transition:opacity .12s;white-space:nowrap}
+.card:hover .mkkeep{opacity:1}
+
+.group{padding:18px 0 22px;border-top:1px solid var(--line)}
+.group:first-child{border-top:0;padding-top:4px}
+.ghead{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+.ghead .t{font-weight:600;font-size:13.5px}
+.ghead .m{color:var(--muted);font-size:13px;flex:1}
+.link{border:0;background:transparent;color:var(--accent);font-size:13px;font-weight:500;padding:4px 8px;border-radius:6px}
+.link:hover{background:var(--accent-soft)}
+.group .grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px 12px}
+
+.empty,.loading{padding:90px 0;text-align:center;color:var(--muted)}
+.errorbox{margin:30px 0;max-width:640px;background:var(--surface);border:1px solid var(--danger);border-radius:12px;padding:18px 20px;white-space:pre-wrap;line-height:1.7}
+.sentinel{height:40px}
+
+/* 아래 선택 바: 하나라도 고르면 나타난다 */
+.selbar{position:fixed;left:50%;bottom:22px;transform:translate(-50%,160%);transition:transform .22s ease;z-index:8;
+  display:flex;align-items:center;gap:4px;background:var(--bar);color:var(--bar-ink);border-radius:14px;padding:8px 8px 8px 18px;box-shadow:var(--shadow-lg)}
+.selbar.on{transform:translate(-50%,0)}
+.selbar .info{font-size:13.5px;margin-right:12px;white-space:nowrap} .selbar .info b{font-weight:700}
+.selbar .sb{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border:0;border-radius:9px;background:transparent;color:inherit;font-size:13px;white-space:nowrap}
+.selbar .sb:hover{background:rgba(127,127,127,.22)}
+.selbar .sb.primary{background:var(--accent);color:#fff;font-weight:600}
+.selbar .sep{width:1px;height:20px;background:rgba(127,127,127,.4);margin:0 4px}
+
+/* 대화상자: 앨범 만들기, 원본 내보내기 */
+.modal{position:fixed;inset:0;background:rgba(15,15,14,.45);display:none;align-items:center;justify-content:center;z-index:10;padding:20px}
+.modal.on{display:flex}
+.sheet{background:var(--surface);border-radius:16px;max-width:520px;width:100%;padding:24px;box-shadow:var(--shadow-lg)}
+.sheet h3{margin:0 0 6px;font-size:18px;letter-spacing:-.01em}
+.sheet p{margin:6px 0 14px;font-size:13.5px;color:var(--muted)} .sheet p b{color:var(--text)}
+.note{background:var(--sunken);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.65;margin-top:14px}
+.note ul{margin:4px 0 0;padding-left:18px}
+.note kbd{font:12px ui-monospace,Menlo,monospace;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:0 5px}
+.acts{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.progress{height:6px;background:var(--sunken);border-radius:3px;overflow:hidden;margin:16px 0 8px}
+.progress div{height:100%;background:var(--accent);width:0;transition:width .3s}
+.pmsg{font-size:13px;color:var(--muted);white-space:pre-wrap}
+.row2{display:flex;gap:8px} .row2 input{flex:1}
+
+/* 크게 보기 */
+/* 사용 안내 */
+.help .sheet{max-width:720px;max-height:86vh;overflow:auto;padding:28px 30px}
+.help h3{font-size:20px;margin:0 0 4px}
+.help h4{font-size:15px;margin:22px 0 6px}
+.help p,.help li{font-size:13.5px;line-height:1.75;color:var(--text)}
+.help p{margin:6px 0}
+.help ol,.help ul{margin:6px 0;padding-left:20px}
+.help .lead{color:var(--muted);margin-bottom:6px}
+.help .warn{border-left:3px solid var(--danger);background:var(--sunken);border-radius:6px;padding:10px 14px;margin:10px 0}
+.help kbd{font:12px ui-monospace,Menlo,monospace;background:var(--sunken);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px}
+.help .acts{position:sticky;bottom:-28px;background:var(--surface);padding:12px 0 0;margin-top:20px}
+.viewer{background:rgba(10,10,10,.9)}
+.viewer .stage{display:flex;flex-direction:column;align-items:center;gap:14px;width:100%;max-width:1200px}
+.viewer img{max-width:100%;max-height:78vh;border-radius:10px;background:#222}
+.vbar{display:flex;align-items:center;gap:8px;color:#eee;font-size:13px;width:100%;max-width:900px}
+.vbar .m{flex:1;text-align:center;color:#bbb}
+.vbtn{height:34px;padding:0 14px;border-radius:9px;border:0;background:rgba(255,255,255,.12);color:#fff;font-size:13px}
+.vbtn:hover{background:rgba(255,255,255,.2)}
+.vbtn.on{background:#2f6fde}
+/* 물음표 도움말, 촬영 기간 입력, 빠른 기간 버튼 */
+.q{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line-strong);color:var(--faint);
+  font:600 10px/1 -apple-system,sans-serif;font-style:normal;cursor:help;margin-left:5px;vertical-align:1px;flex:none}
+.q:hover,.q:focus-visible{border-color:var(--accent);color:var(--accent)}
+#tip{position:fixed;z-index:30;max-width:280px;background:var(--bar);color:var(--bar-ink);font-size:12.5px;line-height:1.6;padding:9px 12px;border-radius:9px;
+  box-shadow:var(--shadow-lg);pointer-events:none;opacity:0;transition:opacity .1s;white-space:pre-line}
+#tip.on{opacity:1}
+.daterange{display:flex;align-items:center;gap:6px}
+.daterange input{flex:1;min-width:0;height:34px;padding:0 6px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-size:12.5px;outline:none}
+.daterange input:focus{border-color:var(--accent)}
+.daterange span{color:var(--faint)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chips button{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:3px 10px;font-size:12px;color:var(--muted)}
+.chips button:hover{border-color:var(--accent);color:var(--accent)}
+.chips button.on{background:var(--accent-soft);border-color:var(--accent-soft);color:var(--accent);font-weight:600}
+#toast{position:fixed;top:68px;left:50%;transform:translateX(-50%);background:var(--bar);color:var(--bar-ink);padding:9px 16px;border-radius:10px;font-size:13px;display:none;z-index:20;max-width:80vw;box-shadow:var(--shadow-lg)}
+</style>
+</head>
+<body>
+<!-- 아이콘 모음(아래에서 <use href="#아이콘-id">로 불러 쓴다) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-big" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3"/></symbol>
+  <symbol id="i-series" viewBox="0 0 24 24"><rect x="7" y="7" width="13" height="13" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></symbol>
+  <symbol id="i-burst" viewBox="0 0 24 24"><rect x="3" y="8" width="10" height="10" rx="2"/><path d="M16 8v10M20 8v10"/></symbol>
+  <symbol id="i-shot" viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M10 5h4"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/></symbol>
+  <symbol id="i-zoom" viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12 5 5 9-10"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+  <symbol id="i-album" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="15" rx="2"/><path d="M3 9h18M8 3h8"/></symbol>
+  <symbol id="i-export" viewBox="0 0 24 24"><path d="M12 15V3m0 0L7 8m5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></symbol>
+</svg>
+
+<!-- 상단 바 -->
+<header>
+  <div class="brand"><span class="mark"><svg class="i"><use href="#i-series"/></svg></span>사진 정리 도우미</div>
+  <div class="stats" id="stats"><span class="stat">보관함을 읽는 중…</span></div>
+  <button class="ghost" id="refresh" title="사진 앱의 최신 상태를 다시 읽습니다"><svg class="i"><use href="#i-refresh"/></svg>새로고침</button>
+  <button class="ghost" id="helpBtn"><svg class="i"><use href="#i-book"/></svg>사용 안내</button>
+</header>
+
+<!-- 사이드바와 본문 -->
+<div class="layout">
+  <aside>
+    <div class="label">찾을 기준</div>
+    <nav class="nav" id="modes">
+      <button class="on" data-mode="large"><svg class="i"><use href="#i-big"/></svg><span class="t">대용량</span><span class="c num" data-c="large"></span><i class="q" tabindex="0" data-tip="파일 크기가 기준 이상인 항목입니다.&#10;대부분 동영상이며, 용량을 가장 빨리 줄일 수 있는 기준입니다.">?</i></button>
+      <button data-mode="series"><svg class="i"><use href="#i-series"/></svg><span class="t">연속촬영</span><span class="c num" data-c="series"></span><i class="q" tabindex="0" data-tip="짧은 간격으로 연달아 찍은 비슷한 사진을 묶습니다.&#10;묶음마다 1장을 남기고 나머지를 후보로 봅니다.">?</i></button>
+      <button data-mode="burst"><svg class="i"><use href="#i-burst"/></svg><span class="t">버스트 미선택</span><span class="c num" data-c="burst"></span><i class="q" tabindex="0" data-tip="버스트 모드로 찍을 때 대표로 고르지 않은 나머지 프레임입니다.&#10;사진 앱 화면에는 안 보이지만 용량은 차지합니다.">?</i></button>
+      <button data-mode="screenshot"><svg class="i"><use href="#i-shot"/></svg><span class="t">스크린샷</span><span class="c num" data-c="screenshot"></span><i class="q" tabindex="0" data-tip="화면 캡처 이미지입니다.&#10;기간과 함께 쓰면 오래된 캡처를 정리하기 좋습니다.">?</i></button>
+    </nav>
+
+    <div class="opts">
+      <div id="opt-large">
+        <div class="label">대용량 옵션</div>
+        <label class="field"><span>최소 크기<i class="q" tabindex="0" data-tip="이 크기 이상인 항목만 보여 줍니다.&#10;크기는 원본 파일 기준입니다.">?</i></span>
+          <select id="min_mb">
+            <option value="20">20MB 이상</option><option value="50">50MB 이상</option>
+            <option value="100" selected>100MB 이상</option><option value="200">200MB 이상</option>
+            <option value="500">500MB 이상</option><option value="1000">1GB 이상</option>
+          </select></label>
+        <div class="field"><span>종류<i class="q" tabindex="0" data-tip="동영상만 또는 사진만 볼 수 있습니다.&#10;스크린샷도 사진에 포함됩니다.">?</i></span>
+          <div class="seg" id="type"><button data-v="all" class="on">전체</button><button data-v="video">동영상</button><button data-v="photo">사진</button></div></div>
+      </div>
+      <div id="opt-series" hidden>
+        <div class="label">연속촬영 옵션</div>
+        <div class="field"><span>한 묶음으로 볼 촬영 간격<i class="q" tabindex="0" data-tip="앞 사진과 촬영 시각 차이가 이 값 이하이면 같은 묶음으로 봅니다.&#10;1초: 연사에 가까운 사진만&#10;3~5초: 구도를 조금 바꿔 다시 찍은 사진까지&#10;간격이 길수록 서로 다른 장면이 섞일 수 있습니다.">?</i></span>
+          <div class="seg" id="gap"><button data-v="1" class="on">1초</button><button data-v="2">2초</button><button data-v="3">3초</button><button data-v="5">5초</button></div>
+          <div class="hint">간격이 길수록 후보가 늘지만 다른 장면이 섞일 수 있습니다.</div></div>
+        <div class="hint">묶음마다 1장을 ‘남김’으로 정합니다.<i class="q" tabindex="0" data-tip="남길 사진은 즐겨찾기, 해상도, 용량 순으로 자동으로 고릅니다.&#10;다른 사진을 남기려면 그 사진에 마우스를 올리고 ‘이걸 남김’을 누르세요.">?</i></div>
+      </div>
+
+      <div class="label">공통 조건</div>
+      <div class="field"><span>촬영 기간<i class="q" tabindex="0" data-tip="이 기간에 찍은 항목만 봅니다. 시작일과 종료일 모두 포함합니다.&#10;한쪽만 정해도 됩니다. 예를 들어 종료일만 정하면 그날 이전 전체입니다.&#10;아래 버튼으로 자주 쓰는 기간을 바로 고를 수 있습니다.">?</i></span>
+        <div class="daterange"><input type="date" id="date_from" aria-label="시작일"><span>~</span><input type="date" id="date_to" aria-label="종료일"></div>
+        <div class="chips" id="presets"><button data-p="all" class="on">전체</button><button data-p="this">올해</button><button data-p="last">작년</button><button data-p="1y">1년 넘은 것</button><button data-p="3y">3년 넘은 것</button></div>
+      </div>
+      <label class="switch"><span>즐겨찾기 제외<i class="q" tabindex="0" data-tip="사진 앱에서 하트(즐겨찾기)를 누른 항목은 후보에서 뺍니다.&#10;연속촬영에서는 묶음 안에 보여 주지만 삭제 제안에서는 뺍니다.">?</i></span><input type="checkbox" id="exclude_fav" checked></label>
+      <label class="switch"><span>가린 항목 제외<i class="q" tabindex="0" data-tip="사진 앱에서 ‘가리기’한 항목을 후보에서 뺍니다.">?</i></span><input type="checkbox" id="exclude_hidden"></label>
+      <div class="hint">공유 앨범과 ‘최근 삭제된 항목’은 처음부터 제외됩니다.</div>
+    </div>
+  </aside>
+
+  <main id="main">
+    <div class="head">
+      <div class="title"><h2 id="mtitle">대용량</h2><div class="metric num" id="match">&nbsp;</div></div>
+      <span id="clusterWrap" class="inline"><select id="cluster" title="묶는 간격"><option value="1800">30분 이내끼리</option><option value="3600" selected>1시간 이내끼리</option><option value="10800">3시간 이내끼리</option><option value="day">같은 날끼리</option></select><i class="q" tabindex="0" style="width:18px;height:18px;font-size:11px;margin:0 2px 7px 4px" data-tip="비슷한 시간에 찍은 항목을 한 묶음으로 모읍니다.&#10;앞 항목과 촬영 시각 차이가 이 간격 안이면 같은 묶음입니다. ‘같은 날끼리’는 촬영 날짜가 같으면 한 묶음입니다.&#10;&#10;묶음은 합계 용량이 큰 순서로, 묶음 안은 찍은 순서로 나열합니다.">?</i></span>
+      <select id="sort" title="정렬"><option value="group">용량 큰 순 (비슷한 시간끼리)</option><option value="size">용량 큰 순 (한 장씩)</option><option value="new">최신순</option><option value="old">오래된 순</option></select>
+      <i class="q" tabindex="0" style="width:18px;height:18px;font-size:11px;margin:0 2px 7px 0" data-tip="선택 방법&#10;클릭: 하나씩 선택하거나 해제&#10;Shift + 클릭: 마지막으로 누른 사진부터 지금 사진까지 한꺼번에&#10;⌘ Command(또는 Ctrl) + 클릭: 다른 선택을 유지한 채 하나씩 추가하거나 빼기&#10;&#10;후보 모두 선택: 지금 조건의 후보 전체를 선택합니다. 연속촬영에서는 남길 사진과 즐겨찾기를 뺍니다.">?</i><button class="btn" id="selAll"><svg class="i"><use href="#i-check"/></svg>후보 모두 선택</button>
+    </div>
+    <div id="content"><div class="loading">불러오는 중…</div></div>
+  </main>
+</div>
+
+<!-- 아래 선택 바 -->
+<div class="selbar" id="selbar">
+  <span class="info num" id="selinfo"></span>
+  <button class="sb" id="csv"><svg class="i"><use href="#i-file"/></svg>CSV</button>
+  <button class="sb" id="export"><svg class="i"><use href="#i-export"/></svg>원본 내보내기</button>
+  <button class="sb primary" id="album"><svg class="i"><use href="#i-album"/></svg>앨범 만들기</button>
+  <span class="sep"></span>
+  <button class="sb" id="selNone" title="선택 해제"><svg class="i"><use href="#i-x"/></svg></button>
+</div>
+
+<!-- 대화상자: 앨범 만들기 -->
+<div class="modal" id="mAlbum"><div class="sheet">
+  <h3>사진 앱에 앨범 만들기</h3>
+  <p>선택한 <b id="aCount"></b>개 항목을 새 앨범에 모읍니다. 사진은 삭제되지 않습니다.</p>
+  <label class="field"><span>앨범 이름</span><input type="text" id="aName"></label>
+  <div class="note">
+    앨범이 생기면 사진 앱에서 검토한 뒤 지우세요.
+    <ul>
+      <li><kbd>Delete</kbd>만 누르면 ‘앨범에서 제거’만 됩니다.</li>
+      <li>보관함에서 지우려면 <kbd>⌘</kbd> + <kbd>Delete</kbd>를 누릅니다. iCloud와 모든 기기에서 함께 지워지고, ‘최근 삭제된 항목’에 30일간 남습니다.</li>
+    </ul>
+  </div>
+  <div id="aProg" hidden><div class="progress"><div></div></div><div class="pmsg" id="aMsg"></div></div>
+  <div class="acts"><button class="btn" data-close>닫기</button><button class="btn primary" id="aGo">앨범 만들기</button></div>
+</div></div>
+
+<!-- 대화상자: 원본 내보내기 -->
+<div class="modal" id="mExport"><div class="sheet">
+  <h3>원본 내보내기</h3>
+  <p>선택한 <b id="eCount"></b>개 항목의 원본을 고른 폴더로 <b>복사</b>합니다. 보관함은 바뀌지 않습니다.</p>
+  <div class="field"><span>저장할 폴더</span>
+    <div class="row2"><input type="text" id="eDest" placeholder="/Volumes/외장드라이브/사진백업"><button class="btn" id="ePick">폴더 고르기</button></div>
+  </div>
+  <div class="note" id="eInfo"></div>
+  <div id="eProg" hidden><div class="progress"><div></div></div><div class="pmsg" id="eMsg"></div></div>
+  <div class="acts"><button class="btn" data-close>닫기</button><button class="btn primary" id="eGo">내보내기 시작</button></div>
+</div></div>
+
+<!-- 크게 보기 -->
+<!-- 사용 안내 -->
+<div class="modal help" id="mHelp"><div class="sheet">
+  <h3>사용 안내</h3>
+  <p class="lead">MacBook에서 iPhone 사진(iCloud 사진)을 정리하는 도구입니다. 이 프로그램은 지울 후보를 찾아 보여 주기만 하고, 실제 삭제는 사진 앱에서 직접 합니다.</p>
+
+  <h4>처음 한 번만 하는 설정</h4>
+  <ol>
+    <li>시스템 설정 &gt; 개인정보 보호 및 보안 &gt; <b>전체 디스크 접근 권한</b>에서 ‘터미널’을 켭니다. 그래야 사진 보관함을 읽을 수 있습니다.</li>
+    <li>앨범 만들기를 처음 누르면 ‘터미널이 사진을 제어하려고 합니다’ 창이 뜹니다. <b>허용</b>을 누릅니다.</li>
+  </ol>
+
+  <h4>찾을 기준</h4>
+  <ul>
+    <li><b>대용량</b>: 크기가 큰 항목입니다. 대부분 동영상이고, 용량을 가장 빨리 줄일 수 있습니다.</li>
+    <li><b>연속촬영</b>: 짧은 간격으로 연달아 찍은 사진 묶음입니다. 묶음마다 1장을 ‘남김’으로 정하고 나머지를 후보로 봅니다.</li>
+    <li><b>버스트 미선택</b>: 버스트 사진에서 대표로 고르지 않은 프레임입니다. 사진 앱에는 안 보이지만 용량은 차지합니다.</li>
+    <li><b>스크린샷</b>: 화면 캡처 이미지입니다.</li>
+  </ul>
+  <p>각 항목 옆 <b>?</b>에 마우스를 올리면 자세한 설명이 나옵니다. 즐겨찾기한 항목은 기본으로 후보에서 빠집니다.</p>
+
+  <h4>사진 고르기</h4>
+  <ul>
+    <li>사진을 누르면 선택되고, 한 번 더 누르면 해제됩니다.</li>
+    <li><kbd>Shift</kbd> + 클릭으로 마지막으로 누른 사진부터 지금 사진까지 한꺼번에 고릅니다.</li>
+    <li><kbd>⌘</kbd> 또는 <kbd>Ctrl</kbd> + 클릭으로 한 장씩 넣거나 뺍니다.</li>
+    <li>사진에 마우스를 올리면 나오는 확대 버튼으로 크게 볼 수 있습니다. 크게 보기에서는 <kbd>←</kbd> <kbd>→</kbd>로 넘기고 <kbd>스페이스</kbd>로 고릅니다.</li>
+  </ul>
+
+  <h4>앨범을 만들고 사진 앱에서 지우기</h4>
+  <ol>
+    <li>사진을 고른 뒤 아래 선택 바에서 <b>앨범 만들기</b>를 누릅니다. 사진 앱에 ‘정리후보’ 앨범이 생깁니다.</li>
+    <li>사진 앱에서 그 앨범을 엽니다.</li>
+    <li>남길 사진은 고르고 <kbd>Delete</kbd>를 누릅니다. 앨범에서만 빠지고 사진은 그대로 남습니다.</li>
+    <li>남은 사진을 <kbd>⌘</kbd> + <kbd>A</kbd>로 모두 고른 뒤 <kbd>⌘</kbd> + <kbd>Delete</kbd>를 누릅니다. 이때 보관함에서 지워집니다.</li>
+    <li>지운 사진은 ‘최근 삭제된 항목’에 30일 동안 남아 되살릴 수 있습니다. 바로 용량을 확보하려면 거기서 모두 삭제합니다.</li>
+    <li>iCloud 용량은 동기화가 끝난 뒤에 줄어듭니다. 몇 시간 걸릴 수 있습니다.</li>
+  </ol>
+  <div class="warn"><b>Delete</b>만 누르면 앨범에서 빠질 뿐입니다. <b>⌘ + Delete</b>를 눌러야 사진이 지워지고, 이때 iPhone과 iCloud에서도 함께 지워집니다.</div>
+
+  <h4>원본 내보내기와 CSV</h4>
+  <ul>
+    <li><b>원본 내보내기</b>는 고른 사진의 원본을 외장 드라이브 같은 다른 폴더로 복사합니다. 지우기 전 백업에 씁니다. 원본이 iCloud에만 있는 항목(☁︎ 표시)은 내려받는 시간이 걸립니다.</li>
+    <li><b>CSV</b>는 고른 항목의 파일명, 촬영일시, 크기 목록을 다운로드 폴더에 저장합니다.</li>
+  </ul>
+
+  <h4>문제 해결</h4>
+  <ul>
+    <li>보관함을 열 수 없다고 나오면 전체 디스크 접근 권한을 확인하고, 터미널을 완전히 끈 뒤 다시 실행합니다.</li>
+    <li>앨범 만들기가 실패하면 시스템 설정 &gt; 개인정보 보호 및 보안 &gt; <b>자동화</b>에서 ‘터미널’ 아래 ‘사진’을 켭니다.</li>
+    <li>사진 앱에서 지운 내용이 안 보이면 위쪽 <b>새로고침</b>을 누릅니다.</li>
+    <li>프로그램을 끝내려면 터미널 창을 닫습니다. 브라우저 탭만 닫으면 계속 실행 중인 상태로 남습니다.</li>
+  </ul>
+  <div class="acts"><button class="btn primary" data-close>닫기</button></div>
+</div></div>
+
+<div class="modal viewer" id="mView"><div class="stage">
+  <img id="vImg" alt="">
+  <div class="vbar">
+    <button class="vbtn" id="vPrev">←</button>
+    <span class="m num" id="vMeta"></span>
+    <button class="vbtn" id="vSel">선택</button>
+    <button class="vbtn" id="vNext">→</button>
+    <button class="vbtn" data-close>닫기</button>
+  </div>
+</div></div>
+
+<div id="toast"></div>
+<div id="tip" role="tooltip"></div>
+
+<script>
+// ---------- 상태와 공통 도구 ----------
+// state.units: 화면에 그리는 단위(카드, 연속촬영 묶음, 시간대 묶음)
+// state.flat: 화면 순서대로 펼친 항목 목록(Shift 범위 선택과 크게 보기 이동에 사용)
+// sel: 선택한 항목(uuid -> 항목). 기준을 바꿔도 유지된다.
+const $ = s => document.querySelector(s);
+const state = { mode:'large', anchor:null, index:new Map(), type:'all', gap:'1', data:null, flat:[], units:[], rendered:0, keep:new Map(), protectFav:true };
+const sel = new Map();
+let viewIdx = -1, observer = null;
+const modeName = {large:'대용량', series:'연속촬영', burst:'버스트 미선택 프레임', screenshot:'스크린샷'};
+const modeShort = {large:'대용량', series:'연속촬영', burst:'버스트', screenshot:'스크린샷'};
+
+const fmt = b => !b ? '0' : b >= 1024**3 ? (b/1024**3).toFixed(1)+'GB' : b >= 1024**2 ? Math.round(b/1024**2).toLocaleString()+'MB' : Math.max(1,Math.round(b/1024))+'KB';
+const dur = s => s>=3600 ? `${Math.floor(s/3600)}:${String(Math.floor(s%3600/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}` : `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;
+const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const svg = id => `<svg class="i"><use href="#${id}"/></svg>`;
+function toast(msg, ms=3200){ const t=$('#toast'); t.textContent=msg; t.style.display='block'; clearTimeout(t._h); t._h=setTimeout(()=>t.style.display='none',ms); }
+async function api(path, body){
+  const r = await fetch(path, body ? {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)} : {});
+  return r.json();
+}
+function params(mode, extra={}){
+  return new URLSearchParams({ mode, sort:$('#sort').value, cluster:$('#cluster').value, date_from:$('#date_from').value, date_to:$('#date_to').value,
+    exclude_fav:$('#exclude_fav').checked?'1':'0', exclude_hidden:$('#exclude_hidden').checked?'1':'0',
+    min_mb:$('#min_mb').value, type:state.type, gap:state.gap, ...extra });
+}
+
+// ---------- 보관함 요약과 기준별 개수 ----------
+async function loadSummary(refresh){
+  $('#stats').innerHTML = `<span class="stat">${refresh?'다시 읽는 중…':'보관함을 읽는 중…'}</span>`;
+  const s = refresh ? await api('/api/refresh', {}) : await api('/api/summary');
+  if (s.error){ $('#stats').innerHTML='<span class="stat">보관함을 읽지 못했습니다</span>'; $('#content').innerHTML=`<div class="errorbox">${esc(s.error)}</div>`; return false; }
+  $('#stats').innerHTML = [
+    ['보관함', `${s.count.toLocaleString()}개`], ['용량', fmt(s.bytes)], ['동영상', fmt(s.video_bytes)], ['기준', s.indexed_at]
+  ].map(([k,v])=>`<span class="stat">${k}<b class="num">${v}</b></span>`).join('');
+  ['#date_from','#date_to'].forEach(id=>{ $(id).min = s.first_date; $(id).max = s.last_date; });
+  return true;
+}
+function loadCounts(){
+  for (const m of ['large','series','burst','screenshot']){
+    api('/api/query?'+params(m,{count_only:'1'})).then(d=>{
+      const el = document.querySelector(`[data-c="${m}"]`);
+      if (el && !d.error) el.innerHTML = `${d.count.toLocaleString()}<br>${fmt(d.bytes)}`;
+    });
+  }
+}
+
+// ---------- 후보 조회와 목록 그리기 ----------
+// 서버 응답 형태에 따라 세 가지로 그린다.
+//   groups(연속촬영): 묶음마다 남길 사진 1장을 표시
+//   sections(용량 큰 순, 비슷한 시간끼리): 시간대 묶음별로 표시
+//   items(그 밖의 정렬): 카드 격자
+// 항목이 많아도 느려지지 않도록 스크롤할 때마다 조금씩 이어 그린다.
+async function query(){
+  $('#mtitle').textContent = modeName[state.mode];
+  $('#match').innerHTML = '&nbsp;';
+  $('#content').innerHTML = '<div class="loading">찾는 중…</div>';
+  const d = await api('/api/query?'+params(state.mode));
+  if (d.error){ $('#content').innerHTML=`<div class="errorbox">${esc(d.error)}</div>`; return; }
+  state.data = d; state.protectFav = !!d.protect_fav;
+  if (d.mode === 'series'){
+    state.units = d.groups.map(g => { const k = state.keep.get(g.items[0].u); if (k && g.items.some(x=>x.u===k)) g.keep = k; return g; });
+    state.flat = d.groups.flatMap(g=>g.items);
+    state.groupOf = new Map(); d.groups.forEach(g=>g.items.forEach(x=>state.groupOf.set(x.u,g)));
+    $('#match').innerHTML = `묶음 <b>${d.group_count.toLocaleString()}</b>개 · 남길 사진을 빼면 <b>${d.count.toLocaleString()}</b>장, <b>${fmt(d.bytes)}</b> 확보 가능`;
+  } else if (d.sections){
+    state.units = d.sections; state.flat = d.sections.flatMap(g=>g.items);
+    $('#match').innerHTML = `<b>${d.count.toLocaleString()}</b>개 · <b>${fmt(d.bytes)}</b> · 비슷한 시간대 묶음 <b>${d.sections.length.toLocaleString()}</b>개`;
+  } else {
+    state.units = d.items; state.flat = d.items;
+    $('#match').innerHTML = `<b>${d.count.toLocaleString()}</b>개 · <b>${fmt(d.bytes)}</b>`;
+  }
+  state.layout = d.mode==='series' ? 'series' : d.sections ? 'sections' : 'grid';
+  $('#clusterWrap').hidden = state.mode==='series' || $('#sort').value!=='group';
+  state.index = new Map(state.flat.map((x,i)=>[x.u,i])); state.anchor = null;
+  state.rendered = 0;
+  const c = $('#content'); c.innerHTML = '';
+  if (!state.units.length){ c.innerHTML = '<div class="empty">조건에 맞는 항목이 없습니다.</div>'; return; }
+  c.appendChild(Object.assign(document.createElement('div'), {className: state.layout==='grid'?'grid':'groups', id:'list'}));
+  const sen = Object.assign(document.createElement('div'), {className:'sentinel'}); c.appendChild(sen);
+  observer && observer.disconnect();
+  observer = new IntersectionObserver(es => { if (es[0].isIntersecting) renderMore(); }, {root:$('#main'), rootMargin:'900px'});
+  observer.observe(sen);
+  $('#main').scrollTop = 0;
+  renderMore();
+}
+
+function cardHTML(x, opts={}){
+  const flags = [];
+  if (x.fav) flags.push('★');
+  if (x.hid) flags.push('가림');
+  return `<div class="card ${sel.has(x.u)?'sel':''} ${opts.keep?'keep':''}" data-u="${x.u}" title="${esc(x.n)}">
+    <div class="thumb">
+      <img loading="lazy" src="/thumb/${x.u}" alt="">
+      ${opts.keep ? '<span class="keeptag">남김</span>' : `<span class="check">${svg('i-check')}</span>`}
+      <button class="zoom" data-zoom title="크게 보기">${svg('i-zoom')}</button>
+      ${x.k==='video' ? `<span class="pill num">${dur(x.dur)}</span>` : ''}
+      ${flags.length ? `<span class="flags">${flags.map(f=>`<span>${f}</span>`).join('')}</span>` : ''}
+      ${opts.group && !opts.keep ? '<button class="mkkeep" data-keep>이걸 남김</button>' : ''}
+    </div>
+    <div class="meta num"><span class="s">${fmt(x.s)}${x.local?'':'<span class="cloud" title="원본이 iCloud에만 있음">☁︎</span>'}</span><span class="d">${opts.time ? x.d.slice(11,16) : x.d.slice(0,10)}</span></div>
+  </div>`;
+}
+const isExtra = (g,x) => x.u!==g.keep && !(state.protectFav && x.fav);
+function groupHTML(u, i){
+  const save = u.items.filter(x=>isExtra(u,x)).reduce((a,x)=>a+x.s,0);
+  return `<section class="group" data-g="${i}"><div class="ghead"><span class="t num">${u.d}</span>
+    <span class="m num">${u.items.length}장 · 지우면 ${fmt(save)} 확보</span>
+    <button class="link" data-gsel>이 묶음 제안대로 선택</button></div>
+    <div class="grid">${u.items.map(x=>cardHTML(x,{group:true, keep:x.u===u.keep})).join('')}</div></section>`;
+}
+function spanText(a, b){
+  if (a===b) return a.slice(0,16);
+  return a.slice(0,10)===b.slice(0,10) ? `${a.slice(0,16)} ~ ${b.slice(11,16)}` : `${a.slice(0,16)} ~ ${b.slice(5,16)}`;
+}
+function sectionHTML(u, i){
+  return `<section class="group" data-s="${i}"><div class="ghead"><span class="t num">${spanText(u.from, u.to)}</span>
+    <span class="m num">${u.items.length}개 · ${fmt(u.bytes)}</span>
+    <button class="link" data-ssel>이 묶음 모두 선택</button></div>
+    <div class="grid">${u.items.map(x=>cardHTML(x,{time:true})).join('')}</div></section>`;
+}
+function renderMore(){
+  const list = $('#list'); if (!list) return;
+  const step = state.layout==='grid' ? 240 : 30;
+  const end = Math.min(state.units.length, state.rendered + step);
+  let html = '';
+  for (let i=state.rendered; i<end; i++) html += state.layout==='series' ? groupHTML(state.units[i], i) : state.layout==='sections' ? sectionHTML(state.units[i], i) : cardHTML(state.units[i]);
+  list.insertAdjacentHTML('beforeend', html);
+  state.rendered = end;
+}
+function rerenderGroup(gi){ const el = document.querySelector(`.group[data-g="${gi}"]`); if (el) el.outerHTML = groupHTML(state.units[gi], gi); }
+
+// ---------- 선택 ----------
+// 클릭: 하나씩 선택 또는 해제 / Shift + 클릭: 범위 선택 / ⌘ 또는 Ctrl + 클릭: 하나씩 추가 또는 해제
+function paint(u){ document.querySelectorAll(`.card[data-u="${u}"]`).forEach(c=>c.classList.toggle('sel', sel.has(u))); }
+function setSel(x, on){ if (on) sel.set(x.u, x); else sel.delete(x.u); paint(x.u); }
+function updateSel(){
+  let b=0; sel.forEach(x=>b+=x.s);
+  $('#selinfo').innerHTML = `<b>${sel.size.toLocaleString()}</b>개 선택 · ${fmt(b)}`;
+  $('#selbar').classList.toggle('on', sel.size>0);
+  document.body.classList.toggle('selecting', sel.size>0);
+}
+const findItem = u => state.flat[state.index.get(u)];
+// 연속촬영에서 '남김'과 보호된 즐겨찾기는 범위 선택에서 건너뜀
+const selectable = x => { if (state.mode!=='series') return true; const g = state.groupOf.get(x.u); return !g || isExtra(g,x); };
+function rangeSelect(toU){
+  const a = state.index.get(state.anchor), b = state.index.get(toU);
+  if (a===undefined || b===undefined) return false;
+  const on = sel.has(state.anchor) || !selectable(state.flat[a]);
+  const [lo,hi] = a<b ? [a,b] : [b,a];
+  for (let i=lo;i<=hi;i++){ const x = state.flat[i]; if (!on) setSel(x,false); else if (selectable(x)) setSel(x,true); }
+  return true;
+}
+function clickCard(x, e){
+  if (e.shiftKey && state.anchor && rangeSelect(x.u)){ updateSel(); return; }
+  setSel(x, !sel.has(x.u)); state.anchor = x.u; updateSel();
+}
+
+$('#content').addEventListener('click', e=>{
+  if (e.target.closest('[data-ssel]')){
+    const g = state.units[+e.target.closest('.group').dataset.s];
+    const all = g.items.every(x=>sel.has(x.u));
+    g.items.forEach(x=>setSel(x, !all)); updateSel(); return;
+  }
+  if (e.target.closest('[data-gsel]')){
+    const g = state.units[+e.target.closest('.group').dataset.g];
+    g.items.forEach(x=>setSel(x, isExtra(g,x))); updateSel(); return;
+  }
+  const card = e.target.closest('.card'); if (!card) return;
+  const x = findItem(card.dataset.u);
+  if (e.target.closest('[data-zoom]')){ openView(state.flat.indexOf(x)); return; }
+  if (e.target.closest('[data-keep]')){
+    const gi = +card.closest('.group').dataset.g, g = state.units[gi];
+    const hadSel = g.items.some(i=>sel.has(i.u));
+    const oldKeep = g.items.find(i=>i.u===g.keep);
+    g.keep = x.u; state.keep.set(g.items[0].u, x.u);
+    if (hadSel){ setSel(x,false); if (oldKeep && isExtra(g,oldKeep)) setSel(oldKeep,true); }
+    rerenderGroup(gi); updateSel(); return;
+  }
+  if (card.classList.contains('keep') && !e.shiftKey){ toast('남길 사진입니다. 다른 사진의 ‘이걸 남김’으로 바꿀 수 있습니다.'); return; }
+  clickCard(x, e);
+});
+// Shift+클릭 때 글자가 드래그 선택되지 않게 함
+$('#content').addEventListener('mousedown', e=>{ if (e.shiftKey) e.preventDefault(); });
+// Mac에서 Ctrl+클릭은 오른쪽 클릭으로 처리되므로 따로 받아 ⌘+클릭과 같게 동작
+$('#content').addEventListener('contextmenu', e=>{
+  const card = e.target.closest('.card'); if (!card || !e.ctrlKey) return;
+  e.preventDefault(); if (card.classList.contains('keep')) return;
+  clickCard(findItem(card.dataset.u), e);
+});
+
+$('#selAll').onclick = ()=>{
+  if (!state.data) return;
+  if (state.mode==='series') state.units.forEach(g=>g.items.forEach(x=>{ if(isExtra(g,x)) sel.set(x.u,x); }));
+  else state.units.forEach(x=>sel.set(x.u,x));
+  document.querySelectorAll('.card').forEach(c=>c.classList.toggle('sel', sel.has(c.dataset.u)));
+  updateSel();
+};
+$('#selNone').onclick = ()=>{ sel.clear(); document.querySelectorAll('.card.sel').forEach(c=>c.classList.remove('sel')); updateSel(); };
+
+// ---------- 옵션 변경 ----------
+document.querySelectorAll('#modes button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#modes button').forEach(m=>m.classList.toggle('on', m===b));
+  state.mode = b.dataset.mode;
+  $('#opt-large').hidden = state.mode!=='large'; $('#opt-series').hidden = state.mode!=='series';
+  query();
+});
+function seg(id, key){ document.querySelectorAll(`#${id} button`).forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(`#${id} button`).forEach(x=>x.classList.toggle('on', x===b)); state[key]=b.dataset.v; query(); loadCounts(); }); }
+seg('type','type'); seg('gap','gap');
+$('#sort').onchange = query;
+$('#cluster').onchange = query;
+['#min_mb','#exclude_fav','#exclude_hidden'].forEach(id=>$(id).onchange=()=>{ query(); loadCounts(); });
+['#date_from','#date_to'].forEach(id=>$(id).onchange=()=>{ markPreset(null); query(); loadCounts(); });
+function markPreset(p){ document.querySelectorAll('#presets button').forEach(b=>b.classList.toggle('on', b.dataset.p===p)); }
+const ymd = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+document.querySelectorAll('#presets button').forEach(b=>b.onclick=()=>{
+  const now = new Date(), y = now.getFullYear(); let f='', t='';
+  if (b.dataset.p==='this'){ f=`${y}-01-01`; t=`${y}-12-31`; }
+  if (b.dataset.p==='last'){ f=`${y-1}-01-01`; t=`${y-1}-12-31`; }
+  if (b.dataset.p==='1y'){ const d=new Date(now); d.setFullYear(y-1); t=ymd(d); }
+  if (b.dataset.p==='3y'){ const d=new Date(now); d.setFullYear(y-3); t=ymd(d); }
+  $('#date_from').value=f; $('#date_to').value=t; markPreset(b.dataset.p); query(); loadCounts();
+});
+
+// 물음표 도움말
+const tip = $('#tip');
+function showTip(el){
+  tip.textContent = el.dataset.tip; tip.classList.add('on');
+  const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+  let left = r.right + 8, top = r.top - 4;
+  if (left + w > innerWidth - 8) left = Math.max(8, r.left - w - 8);
+  if (top + h > innerHeight - 8) top = innerHeight - h - 8;
+  tip.style.left = left+'px'; tip.style.top = Math.max(8,top)+'px';
+}
+const hideTip = () => tip.classList.remove('on');
+document.addEventListener('mouseover', e=>{ const q=e.target.closest('.q'); if (q) showTip(q); });
+document.addEventListener('mouseout', e=>{ if (e.target.closest('.q')) hideTip(); });
+document.addEventListener('focusin', e=>{ const q=e.target.closest('.q'); if (q) showTip(q); });
+document.addEventListener('focusout', e=>{ if (e.target.closest('.q')) hideTip(); });
+document.addEventListener('click', e=>{ const q=e.target.closest('.q'); if (q){ e.preventDefault(); e.stopPropagation(); showTip(q); } }, true);
+document.addEventListener('scroll', hideTip, true);
+$('#refresh').onclick = async ()=>{ if (await loadSummary(true)){ query(); loadCounts(); } };
+
+// ---------- 크게 보기(←, →, 스페이스, Esc) ----------
+function openView(i){ if (i<0) return; viewIdx=i; const x=state.flat[i];
+  $('#vImg').src = `/preview/${x.u}`;
+  $('#vMeta').textContent = `${x.n}  ·  ${x.d}  ·  ${fmt(x.s)}${x.w?`  ·  ${x.w}×${x.h}`:''}${x.k==='video'?`  ·  ${dur(x.dur)}`:''}${x.local?'':'  ·  원본 iCloud'}`;
+  $('#vSel').textContent = sel.has(x.u) ? '선택됨 ✓' : '선택';
+  $('#vSel').classList.toggle('on', sel.has(x.u));
+  $('#mView').classList.add('on'); }
+$('#vPrev').onclick=()=>openView(Math.max(0,viewIdx-1));
+$('#vNext').onclick=()=>openView(Math.min(state.flat.length-1,viewIdx+1));
+$('#vSel').onclick=()=>{ const x=state.flat[viewIdx]; setSel(x,!sel.has(x.u)); updateSel(); openView(viewIdx); };
+document.addEventListener('keydown', e=>{
+  if (e.key==='Escape') hideTip();
+  if (!$('#mView').classList.contains('on')){ if(e.key==='Escape') document.querySelectorAll('.modal.on').forEach(closeModal); return; }
+  if (e.key==='Escape') closeModal($('#mView'));
+  if (e.key==='ArrowLeft') $('#vPrev').click();
+  if (e.key==='ArrowRight') $('#vNext').click();
+  if (e.key===' '){ e.preventDefault(); $('#vSel').click(); }
+});
+
+// ---------- 대화상자, 앨범 만들기, 원본 내보내기 ----------
+function closeModal(m){ if (m.dataset.busy==='1') return; m.classList.remove('on'); }
+document.querySelectorAll('.modal').forEach(m=>m.addEventListener('click', e=>{ if (e.target===m || e.target.closest('[data-close]')) closeModal(m); }));
+const today = () => new Date().toISOString().slice(0,10);
+$('#helpBtn').onclick = ()=> $('#mHelp').classList.add('on');
+
+$('#album').onclick = ()=>{
+  $('#aCount').textContent = sel.size.toLocaleString();
+  $('#aName').value = `정리후보 ${modeShort[state.mode]} ${today()}`;
+  $('#aProg').hidden = true; $('#aGo').disabled = false;
+  $('#mAlbum').classList.add('on'); $('#aName').focus();
+};
+$('#aGo').onclick = async ()=>{
+  $('#aGo').disabled = true;
+  const j = await api('/api/album', {name:$('#aName').value, uuids:[...sel.keys()]});
+  if (j.error){ toast(j.error); $('#aGo').disabled=false; return; }
+  track(j.id, $('#mAlbum'), '#aProg', '#aMsg', '사진 앱에 추가하는 중입니다. 처음이면 ‘터미널이 사진을 제어하려고 합니다’ 창에서 허용을 눌러 주세요.');
+};
+
+$('#export').onclick = ()=>{
+  const items=[...sel.values()], cloud=items.filter(x=>!x.local);
+  $('#eCount').textContent = items.length.toLocaleString();
+  $('#eInfo').innerHTML = `맥에 원본이 있는 ${(items.length-cloud.length).toLocaleString()}개는 바로 복사합니다.` +
+    (cloud.length ? `<br>원본이 iCloud에만 있는 ${cloud.length.toLocaleString()}개(${fmt(cloud.reduce((a,x)=>a+x.s,0))})는 사진 앱이 내려받은 뒤 내보내므로 시간이 걸립니다.` : '') +
+    `<br>폴더에 ‘내보내기_기록’ CSV가 함께 저장됩니다. 폴더 고르기 창이 브라우저 뒤에 뜰 수 있습니다.`;
+  $('#eProg').hidden = true; $('#eGo').disabled = false;
+  $('#mExport').classList.add('on');
+};
+$('#ePick').onclick = async ()=>{ toast('폴더 고르기 창을 여는 중…'); const r = await api('/api/choose_folder', {}); if (r.path) $('#eDest').value = r.path; else if (r.error) toast(r.error); };
+$('#eGo').onclick = async ()=>{
+  const dest = $('#eDest').value.trim();
+  if (!dest.startsWith('/')){ toast('저장할 폴더를 먼저 고르세요.'); return; }
+  $('#eGo').disabled = true;
+  const j = await api('/api/export', {dest, uuids:[...sel.keys()]});
+  if (j.error){ toast(j.error); $('#eGo').disabled=false; return; }
+  track(j.id, $('#mExport'), '#eProg', '#eMsg', '내보내는 중입니다.');
+};
+function track(id, modal, progSel, msgSel, startMsg){
+  modal.dataset.busy='1'; $(progSel).hidden=false; $(msgSel).textContent=startMsg;
+  const bar = $(progSel).querySelector('.progress div');
+  const tick = async ()=>{
+    const j = await api('/api/job/'+id);
+    bar.style.width = (j.total ? Math.round(j.done/j.total*100) : 0)+'%';
+    if (j.status==='running'){ $(msgSel).textContent = `${startMsg} (${j.done.toLocaleString()} / ${j.total.toLocaleString()})`; setTimeout(tick, 1000); return; }
+    modal.dataset.busy='0'; $(msgSel).textContent = j.message; bar.style.width='100%';
+  };
+  tick();
+}
+
+// ---------- CSV 저장(브라우저에서 바로 만들어 다운로드) ----------
+$('#csv').onclick = ()=>{
+  const rows = [['파일명','촬영일시','크기MB','종류','즐겨찾기','맥에 원본 있음','uuid']];
+  sel.forEach(x=>rows.push([x.n,x.d,(x.s/1048576).toFixed(2),{video:'동영상',photo:'사진',shot:'스크린샷'}[x.k],x.fav?'Y':'',x.local?'Y':'N',x.u]));
+  const csv = '﻿'+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = Object.assign(document.createElement('a'), {href:URL.createObjectURL(new Blob([csv],{type:'text/csv'})), download:`사진정리후보_${today()}.csv`});
+  a.click(); toast('CSV를 다운로드 폴더에 저장했습니다.');
+};
+
+// ---------- 시작 ----------
+(async ()=>{ updateSel(); if (await loadSummary(false)){ query(); loadCounts(); } })();
+</script>
+</body>
+</html>
